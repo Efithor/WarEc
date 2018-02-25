@@ -145,22 +145,22 @@ function createHexagonalGrid(radius,xCount,yCount,xOrig,yOrig){
 function setupLand(rArray){
   //Set the left and right borders to be water.
   for(var y=0;y<rArray[0].length;y++){
-    rArray[0][y].fillColor = 'blue';
+    rArray[0][y].fillColor = '#0a48ad';
     rArray[0][y].isLand = false;
-    rArray[rArray.length-1][y].fillColor = 'blue';
+    rArray[rArray.length-1][y].fillColor = '#0a48ad';
     rArray[rArray.length-1][y].isLand = false
   }
   // top and bottom: the middle 60% is land.
   for(var x=0;x<rArray.length;x++){
     if(x<=Math.floor(rArray.length*0.2)-1 || (x>Math.floor(rArray.length*0.8)-1)){
-      rArray[x][0].fillColor = 'blue';
+      rArray[x][0].fillColor = '#0a48ad';
       rArray[x][0].isLand = false;
-      rArray[x][rArray[0].length-1].fillColor = 'blue';
+      rArray[x][rArray[0].length-1].fillColor = '#0a48ad';
       rArray[x][rArray[0].length-1].isLand = false;
     }else{
-      rArray[x][0].fillColor = 'green';
+      rArray[x][0].fillColor = 'white';
       rArray[x][0].isLand = true;
-      rArray[x][rArray[0].length-1].fillColor = 'green';
+      rArray[x][rArray[0].length-1].fillColor = 'white';
       rArray[x][rArray[0].length-1].isLand = true;
     }
   }
@@ -176,10 +176,10 @@ function setupLand(rArray){
       var landColor;
       var izzitLand;
       if(doesXArrayContainYElement(oceanSeeds,seedCount)){
-        landColor = 'blue';
+        landColor = '#0a48ad';
         izzitLand = false;
       }else{
-        landColor = 'green';
+        landColor = 'white';
         izzitLand = true;
       }
       rArray[Math.floor(rArray.length/4)*seedX][Math.floor(rArray[0].length/4)*seedY].fillColor = landColor;
@@ -213,10 +213,10 @@ function setupLand(rArray){
         //Now that we know how many adjacent tiles are/n't lands, randomly make this tile land or water.
         if(Math.random() > 0.6 - landCount/13){
           rArray[x][y].isLand = true;
-          rArray[x][y].fillColor = 'green';
+          rArray[x][y].fillColor = 'white';
         }else{
           rArray[x][y].isLand = false;
-          rArray[x][y].fillColor = 'blue';
+          rArray[x][y].fillColor = '#0a48ad';
         }
       }
     }
@@ -252,36 +252,51 @@ function setupRegionBiomes(regionArray, mountainPercent, forestPercent, desertPe
     for(var y=0;y<regionArray[x].length;y++){
       if(regionArray[x][y].isLand && regionArray[x][y].biome === undefined){
         regionArray[x][y].biome = 'plain';
-        regionArray[x][y].fillColor = '#7eb563';
       }
     }
   }
-  //Divide the land into temp zones
-  //1/6 and 6/6: Artic
-  //Plains -> Tundra
-  //Desert -> Tundra
-  //Forest -> Boreal Forest
-  //Mountain ->  Snowy Mount
-
-  //2/6 and 5/6: Temperate
-  //Plains -> Grassland
-  //Desert -> Desert
-  //Forest -> Forest
-  //Mountain ->  Snow-Capped Mount
-
-  //Middle third: Tropical
-  //Plains -> Swamp
-  //Desert -> Desert
-  //Forest -> Jungle
-  //Mountain -> Mount
+  //Color the zones based on temp.
+  createTempZones(regionArray);
 
   //Place a number of towns relative to the size of the map.
   //Biased towards coasts, temperate, and tropical areas.
-
+  createTowns(regionArray);
   //Upgrade a percentage of the towns to cities
   //Biased towards cities that have more towns nearby.
+  upgradeTownsToCities(regionArray,0.15);
 
 }
+
+function createTowns(regionArray){
+  var potentialTownArray = [];
+  //Create array with all valid regions, giving a weight to each region.
+  for(var x=0;x<regionArray.length;x++){
+    for(var y=0;y<regionArray[x].length;y++){
+      if(regionArray[x][y].isLand){
+        var weight = 10;
+        if(isTemperate(regionArray[x][y]) || isTropical(regionArray[x][y])){
+          weight = weight + 5;
+        }
+        if(isCoastal(regionArray[x][y])){
+          weight = weight + 10;
+        }
+        potentialTownArray.push([regionArray[x][y],weight);
+      }
+    }
+  }
+  //Choose a region at random, that region gets a town.
+  //Remove the region from the weighted array.
+  //Repeat until sufficient number of towns are created.
+}
+
+function upgradeTownsToCities(regionArray,percentage){
+  //Create an array with all towns, giving weight to each town.
+  //Choose a town at random to upgrade to a city.
+  //Remove the region from the weighted array.
+  //Recalculate weights, nearby cities lower the weight.
+  //Repeat until sufficent
+}
+
 //Choose a random land square and put a biomeType on it.
 //Either grab a random adjacent squre (80% chance?) and put a biomeType
 //there, or choose a new nonbiomeType square.
@@ -312,41 +327,156 @@ function placeBiomeType(rArray, biomeType, maxPercent){
       for(var i=0;i<adjArray.length;i++){
         if(doesXArrayContainYElement(validLandArray,adjArray[i])){
           validAdjArray.push(adjArray[i]);
-          //Special case where there arn't any valid tiles.
-          if(validAdjArray.length === 0){
-            //Choose a random plot of valid land. Put a biome on it.
-            var validID = Math.floor(Math.random()*validLandArray.length);
-            validLandArray[validID].biome = biomeType;
-            lastPlaced=validLandArray[validID];
-            //remove this element from the valid land array.
-          }else{
-            //Otherwise, choose one from the validAdjArray.
-            var validAdjID = Math.floor(Math.random()*validAdjArray.length)
-            validAdjArray[validAdjID].biome = biomeType;
-            lastPlaced = validAdjArray[validAdjID];
-            //remove this tile from the valid land array.
-          }
         }
+      }
+      //Now that the adjArray has been created, let's work with it.
+      //Special case where there arn't any valid tiles.
+      if(validAdjArray.length === 0){
+        //Choose a random plot of valid land. Put a biome on it.
+        var validID = Math.floor(Math.random()*validLandArray.length);
+        validLandArray[validID].biome = biomeType;
+        lastPlaced=validLandArray[validID];
+        validLandArray.slice(validID); //remove this element from the valid land array.
+      }else{
+        //Otherwise, choose one from the validAdjArray.
+        var validAdjID = Math.floor(Math.random()*validAdjArray.length)
+        validAdjArray[validAdjID].biome = biomeType;
+        lastPlaced = validAdjArray[validAdjID];
+        validLandArray.slice(getXArrayAddressOfYElement(validLandArray,validAdjArray[validAdjID])); //remove this tile from the valid land array.
       }
     }else{
       //Choose a random plot of valid land. Put a mountain on it.
       var validID = Math.floor(Math.random()*validLandArray.length);
       validLandArray[validID].biome = biomeType;
       lastPlaced=validLandArray[validID];
-      //remove this place from the valid land array.
-    }
-    if(biomeType === 'mountain'){
-      validLandArray[validID].fillColor = 'grey';
-    }
-    if(biomeType === 'forest'){
-      validLandArray[validID].fillColor = 'green';
-    }
-    if(biomeType === 'desert'){
-      validLandArray[validID].fillColor = '#c4b850';
+      validLandArray.slice(validID); //remove this place from the valid land array.
     }
     biomeCount++;
   }
 
+}
+
+//given a biome, color it.
+function colorBiome(biomeTile){
+  if(biomeTile.biome === 'mountain'){
+    biomeTile.fillColor = '#5b6466';
+  }
+  if(biomeTile.biome === 'snow-capped mountain'){
+    biomeTile.fillColor = '#848f91';
+  }
+  if(biomeTile.biome === 'snowyMoutain'){
+    biomeTile.fillColor = '#abb9bc';
+  }
+  if(biomeTile.biome === 'forest'){
+    biomeTile.fillColor = '#1f632c';
+  }
+  if(biomeTile.biome === 'boreal forest'){
+    biomeTile.fillColor = '#38593e';
+  }
+  if(biomeTile.biome === 'jungle'){
+    biomeTile.fillColor = '#026315';
+  }
+  if(biomeTile.biome === 'swamp'){
+    biomeTile.fillColor = '#4f5b02';
+  }
+  if(biomeTile.biome === 'desert'){
+    biomeTile.fillColor = '#899e06';
+  }
+  if(biomeTile.biome === 'tundra'){
+    biomeTile.fillColor = '#600505';
+  }
+  if(biomeTile.biome === 'grassland'){
+    biomeTile.fillColor = '#427a06';
+  }
+}
+
+//given a region array, convert tiles by temp.
+function createTempZones(rArray){
+  //Divide the land into temp zones
+  zWidth = Math.floor(rArray[0].length/6);
+  //1/6 and 6/6: Artic
+  nHemArticMaxY = zWidth-1;
+  sHemArticMinY = (zWidth*5)+1;
+  //Plains -> Tundra
+  //Desert -> Tundra
+  //Forest -> Boreal Forest
+  //Mountain ->  Snowy Mount
+
+  //2/6 and 5/6: Temperate
+  nHemTempMaxY = (zWidth*2);
+  sHemTempMinY = (zWidth*4);
+  //Plains -> Grassland
+  //Desert -> Desert
+  //Forest -> Forest
+  //Mountain ->  Snow-Capped Mount
+
+  //Middle third: Tropical
+  tropMaxY = zWidth*4;
+  //Plains -> Swamp
+  //Desert -> Desert
+  //Forest -> Jungle
+  //Mountain -> Mount
+  for(var x=0;x<rArray.length;x++){
+    for(var y=0;y<rArray[x].length;y++){
+      //artic cases
+      if(y<=nHemArticMaxY || y>=sHemArticMinY){
+        if(rArray[x][y].biome === 'plain'){
+          rArray[x][y].biome = 'tundra';
+          colorBiome(rArray[x][y]);
+        }
+        if(rArray[x][y].biome === 'desert'){
+          rArray[x][y].biome = 'tundra';
+          colorBiome(rArray[x][y]);
+        }
+        if(rArray[x][y].biome === 'forest'){
+          rArray[x][y].biome = 'boreal forest';
+          colorBiome(rArray[x][y]);
+        }
+        if(rArray[x][y].biome === 'mountain'){
+          rArray[x][y].biome = 'snowyMoutain';
+          colorBiome(rArray[x][y]);
+        }
+      }
+      //temperate cases
+      if(y<=nHemTempMaxY && y>nHemArticMaxY || y>=sHemTempMinY && y<sHemArticMinY){
+        if(rArray[x][y].biome === 'plain'){
+          rArray[x][y].biome = 'grassland';
+          colorBiome(rArray[x][y]);
+        }
+        if(rArray[x][y].biome === 'desert'){
+          rArray[x][y].biome = 'desert';
+          colorBiome(rArray[x][y]);
+        }
+        if(rArray[x][y].biome === 'forest'){
+          rArray[x][y].biome = 'forest';
+          colorBiome(rArray[x][y]);
+        }
+        if(rArray[x][y].biome === 'mountain'){
+          rArray[x][y].biome = 'snow-capped mountain';
+          colorBiome(rArray[x][y]);
+        }
+      }
+      //tropical cases
+      if(y<=tropMaxY && y>nHemArticMaxY && y>nHemTempMaxY){
+        if(rArray[x][y].biome === 'plain'){
+          rArray[x][y].biome = 'swamp';
+          colorBiome(rArray[x][y]);
+        }
+        if(rArray[x][y].biome === 'desert'){
+          rArray[x][y].biome = 'desert';
+          colorBiome(rArray[x][y]);
+        }
+        if(rArray[x][y].biome === 'forest'){
+          rArray[x][y].biome = 'jungle';
+          colorBiome(rArray[x][y]);
+        }
+        if(rArray[x][y].biome === 'mountain'){
+          rArray[x][y].biome = 'mountain';
+          colorBiome(rArray[x][y]);
+        }
+      }
+    }
+  }
 }
 
 //Creates a number of interest objects to compete over regions.
@@ -632,6 +762,16 @@ function doesXArrayContainYElement(x,y){
   }
   return false;
 }
+
+function getXArrayAddressOfYElement(x,y){
+  for(var i=0;i<x.length;i++){
+    if(x[i]===y){
+      return i;
+    }
+  }
+  return false;
+}
+
 //Given a region array, calculat the total tiles.
 function getTotalTiles(rArray){
   var totalTiles = 0;
