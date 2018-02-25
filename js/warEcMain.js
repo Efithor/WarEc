@@ -14,6 +14,7 @@ var mainMenuBackground;
 var mainMenuTitle;
 var mousePos;
 var buttonArray = [];
+//var regionArray = [];
 
 //Run when the window loads
 window.onload = function(){
@@ -114,23 +115,30 @@ paper.view.onFrame = function(event){
 //Initializer Functions
 //Creates a series of hexagonal reigon objects for the game to take place on.
 //A reigon is a paper object with other attributes ascribed to it.
-function createReigons(){
-  createHexagonalGrid(40,10,10,100,100);
+function createRegions(){
+  var regionArray = createHexagonalGrid(40,10,10,100,100);
+  setupRegionBiomes(regionArray);
 }
-//Given a certain radius of
+//Given a certain radius, quantity, and origin, create a hexagonal grid.
 function createHexagonalGrid(radius,xCount,yCount,xOrig,yOrig){
   for(var i=0;i<yCount;i++){
+    var regionArray[i] = [];
     for(var q=0;q<xCount;q++){
       var newRegion = new paper.Path.RegularPolygon(new paper.Point(xOrig + q * Math.sqrt(3)/2*radius*2,yOrig + i * radius*1.5),6,radius);
       if(i%2){
-        newRegion.position.x = newRegion.position.x - (Math.sqrt(3)/2*radius*2)/2;
+        newRegion.position.x = newRegion.position.x + (Math.sqrt(3)/2*radius*2)/2;
       }
-      newRegion.fillColor = 'green';
       newRegion.strokeColor = 'black';
       newRegion.strokeWidth = 5;
+      return regionArray[i][q] = newRegion;
     }
   }
 }
+//Given a region array, assign biomes.
+setupRegionBiomes(regionArray){
+
+}
+
 //Creates a number of interest objects to compete over regions.
 function createInterests(){
 
@@ -243,7 +251,7 @@ function drawMainMenu(){
 //Menu Functions
 //Starts a new game. Could take parameters in later versions.
 function newGame(){
-  createReigons();
+  createRegions();
   createInterests();
   createPMCs();
 }
