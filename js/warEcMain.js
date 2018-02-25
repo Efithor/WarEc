@@ -116,26 +116,114 @@ paper.view.onFrame = function(event){
 //Creates a series of hexagonal reigon objects for the game to take place on.
 //A reigon is a paper object with other attributes ascribed to it.
 function createRegions(){
-  var regionArray = createHexagonalGrid(40,10,10,100,100);
+  var regionArray = [];
+  regionArray = createHexagonalGrid(20,25,20,50,50);
+  setupLand(regionArray);
   setupRegionBiomes(regionArray);
 }
 //Given a certain radius, quantity, and origin, create a hexagonal grid.
 function createHexagonalGrid(radius,xCount,yCount,xOrig,yOrig){
-  for(var i=0;i<yCount;i++){
-    var regionArray[i] = [];
-    for(var q=0;q<xCount;q++){
-      var newRegion = new paper.Path.RegularPolygon(new paper.Point(xOrig + q * Math.sqrt(3)/2*radius*2,yOrig + i * radius*1.5),6,radius);
-      if(i%2){
+  var regArray = [];
+  for(var x=0;x<xCount;x++){
+    regArray[x] = [];
+    for(var y=0;y<yCount;y++){
+      var newRegion = new paper.Path.RegularPolygon(new paper.Point(xOrig + x * Math.sqrt(3)/2*radius*2,yOrig + y * radius*1.5),6,radius);
+      if(y%2){
         newRegion.position.x = newRegion.position.x + (Math.sqrt(3)/2*radius*2)/2;
       }
       newRegion.strokeColor = 'black';
       newRegion.strokeWidth = 5;
-      return regionArray[i][q] = newRegion;
+      newRegion.xCord = x;
+      newRegion.yCord = y;
+      newRegion.isLand = undefined;
+      regArray[x][y] = newRegion;
+    }
+  }
+  return regArray;
+}
+//Given a region array, create landmasses
+function setupLand(rArray){
+  //Set the left and right borders to be water.
+  for(var y=0;y<rArray[0].length;y++){
+    rArray[0][y].fillColor = 'blue';
+    rArray[0][y].isLand = false;
+    rArray[rArray.length-1][y].fillColor = 'blue';
+    rArray[rArray.length-1][y].isLand = false
+  }
+  // top and bottom: the middle 60% is land.
+  for(var x=0;x<rArray.length;x++){
+    if(x<=Math.floor(rArray.length*0.2)-1 || (x>Math.floor(rArray.length*0.8)-1)){
+      rArray[x][0].fillColor = 'blue';
+      rArray[x][0].isLand = false;
+      rArray[x][rArray[0].length-1].fillColor = 'blue';
+      rArray[x][rArray[0].length-1].isLand = false;
+    }else{
+      rArray[x][0].fillColor = 'green';
+      rArray[x][0].isLand = true;
+      rArray[x][rArray[0].length-1].fillColor = 'green';
+      rArray[x][rArray[0].length-1].isLand = true;
+    }
+  }
+
+  //Drop in "continent seeds" and "ocean seeds"
+  //Choose 4 random numbers ranging from 0-8. These will be our ocean seeds.
+  var oceanSeeds = chooseXofY(4,[0,1,2,3,4,5,6,7,8]);
+  var seedCount = 0;
+  for(var x=0; x<3; x++){
+    for(var y=0; y<3;y++){
+      var seedX = x+1;
+      var seedY = y+1;
+      var landColor;
+      var izzitLand;
+      if(doesXArrayContainYElement(oceanSeeds,seedCount)){
+        landColor = 'blue';
+        izzitLand = false;
+      }else{
+        landColor = 'green';
+        izzitLand = true;
+      }
+      rArray[Math.floor(rArray.length/4)*seedX][Math.floor(rArray[0].length/4)*seedY].fillColor = landColor;
+      rArray[Math.floor(rArray.length/4)*seedX][Math.floor(rArray[0].length/4)*seedY].isLand = izzitLand;
+      var adjArray = getAdjacentHexes(rArray,rArray[Math.floor(rArray.length/4)*seedX][Math.floor(rArray[0].length/4)*seedY]);
+      for(var i=0;i<adjArray.length;i++){
+        if(adjArray != undefined){
+            adjArray[i].fillColor = landColor;
+            adjArray[i].isLand = izzitLand;
+        }
+      }
+      seedCount++;
+    }
+  }
+
+  //If an adjacent region has a land type, increase the chance that said type will also have that type.
+  for(var x=0;x<rArray.length;x++){
+    for(var y=0;y<rArray[x].length;y++){
+      if(rArray[x][y].isLand === undefined){
+        var adjArray = getAdjacentHexes(rArray,rArray[x][y]);
+        var landCount = 0;
+        for(var i=0; i<adjArray.length;i++){
+          if(adjArray[i] != undefined && adjArray[i].isLand != undefined){
+            if(adjArray[i].isLand){
+              landCount++;
+            }else{
+              landCount--;
+            }
+          }
+        }
+        //Now that we know how many adjacent tiles are/n't lands, randomly make this tile land or water.
+        if(Math.random() > 0.6 - landCount/13){
+          rArray[x][y].isLand = true;
+          rArray[x][y].fillColor = 'green';
+        }else{
+          rArray[x][y].isLand = false;
+          rArray[x][y].fillColor = 'blue';
+        }
+      }
     }
   }
 }
 //Given a region array, assign biomes.
-setupRegionBiomes(regionArray){
+function setupRegionBiomes(regionArray){
 
 }
 
@@ -347,6 +435,78 @@ function incrementTurnCount(){
 function isRealObject(object){
   if(object !== 'null' && object !== 'undefined'){
     return true;
+  }
+  return false;
+}
+//Given a region array and region object, return an array containing all adjacent hexes, starting with the 1oClock one and working clockwise. Gaps are listed as undefinded.
+function getAdjacentHexes(rArray, rObj){
+  var adjArray = [];
+  //Slot 1
+  //Get x+1
+  if(rArray[rObj.xCord+1]===undefined){
+    adjArray[1] = undefined;
+  }else{
+    adjArray[1] = rArray[rObj.xCord+1][rObj.yCord];
+  }
+  //Slot 4
+  //Get x-1
+  if(rArray[rObj.xCord-1]===undefined){
+    adjArray[4] = undefined;
+  }else{
+    adjArray[4] = rArray[rObj.xCord-1][rObj.yCord];
+  }
+  if(rObj.yCord%2){ //If y odd
+    if(rArray[rObj.xCord+1]===undefined){
+      adjArray[0] = undefined;
+      adjArray[2] = undefined;
+    }else{
+      //Get y-1, x+1 //Slot 0
+      adjArray[0] = rArray[rObj.xCord+1][rObj.yCord-1];
+      //Get y+1. x+1 //Slot 2
+      adjArray[2] = rArray[rObj.xCord+1][rObj.yCord+1];
+    }
+    //Get y+1 //Slot 3
+    adjArray[3] = rArray[rObj.xCord][rObj.yCord+1];
+    //Get y-1 //Slot 5
+    adjArray[5] = rArray[rObj.xCord][rObj.yCord-1];
+  }else{
+    //Get y-1 //Slot 0
+    adjArray[0] = rArray[rObj.xCord][rObj.yCord-1];
+    //Get y+1 //Slot 2
+    adjArray[2] = rArray[rObj.xCord][rObj.yCord+1];
+    if(rArray[rObj.xCord-1]===undefined){
+      adjArray[3] = undefined;
+    }else{
+      //Get y+1. x+1 //Slot 3
+      adjArray[3] = rArray[rObj.xCord-1][rObj.yCord+1];
+    }
+    if(rArray[rObj.xCord-1]===undefined){
+      adjArray[5] = undefined;
+    }else{
+      //Get y-1, x-1 //Slot 5
+      adjArray[5] = rArray[rObj.xCord-1][rObj.yCord-1];
+    }
+  }
+
+  return adjArray;
+}
+
+function chooseXofY(x,y){
+  var chosenArray = [];
+  while(chosenArray.length < x){
+    var chosenElement = y[Math.floor(Math.random()*y.length)];
+    if(!doesXArrayContainYElement(chosenArray,chosenElement)){
+      chosenArray.push(chosenElement);
+    }
+  }
+  return chosenArray;
+}
+
+function doesXArrayContainYElement(x,y){
+  for(var i=0;i<x.length;i++){
+    if(x[i]===y){
+      return true;
+    }
   }
   return false;
 }
