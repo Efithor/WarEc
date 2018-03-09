@@ -60,10 +60,11 @@ class regiment{
   }
 }
 class interest {
-  constructor(capital, name, color){
+  constructor(capital, name, color, id){
     this.capital = capital;
     this.name = name;
     this.color = color;
+    this.id = id;
   }
   takeTurn(){
 
@@ -321,7 +322,8 @@ var worldGeneratorModule = (function(){
       giveRegionTown(chosenElement[0]);
       townCount++;
       //Remove the region from the weighted array.
-      potentialTownArray.slice(getXArrayAddressOfYElement(potentialTownArray,chosenElement));
+      var index = getXArrayAddressOfYElement(potentialTownArray,chosenElement);
+      potentialTownArray.splice(index,1);
     }
   }
   function giveRegionTown(region){
@@ -407,20 +409,21 @@ var worldGeneratorModule = (function(){
           var validID = Math.floor(Math.random()*validLandArray.length);
           validLandArray[validID].biome = biomeType;
           lastPlaced=validLandArray[validID];
-          validLandArray.slice(validID); //remove this element from the valid land array.
+          validLandArray.splice(validID,1); //remove this element from the valid land array.
         }else{
           //Otherwise, choose one from the validAdjArray.
           var validAdjID = Math.floor(Math.random()*validAdjArray.length)
           validAdjArray[validAdjID].biome = biomeType;
           lastPlaced = validAdjArray[validAdjID];
-          validLandArray.slice(getXArrayAddressOfYElement(validLandArray,validAdjArray[validAdjID])); //remove this tile from the valid land array.
+          var index = getXArrayAddressOfYElement(validLandArray,validAdjArray[validAdjID]);
+          validLandArray.splice(index,1); //remove this tile from the valid land array.
         }
       }else{
         //Choose a random plot of valid land. Put a mountain on it.
         var validID = Math.floor(Math.random()*validLandArray.length);
         validLandArray[validID].biome = biomeType;
         lastPlaced=validLandArray[validID];
-        validLandArray.slice(validID); //remove this place from the valid land array.
+        validLandArray.splice(validID,1); //remove this place from the valid land array.
       }
       biomeCount++;
     }
@@ -564,19 +567,105 @@ var worldGeneratorModule = (function(){
     var numTowns = potentialCapitalArray.length;
     //Create a number of interests equal to half the total towns.
     for(var i=0; i<Math.floor(numTowns/2); i++){
+      var id = i;
       var capital = potentialCapitalArray[Math.floor(Math.random()*potentialCapitalArray.length)]; //Each interest starts at a random town.
-      potentialCapitalArray.slice(getXArrayAddressOfYElement(potentialCapitalArray,capital));
-      var name = 'interest';
-      var color = 'red';
-      var newInt = new interest(capital,name,color);
-      capital.influence = {newInt: 100};
+      var index = getXArrayAddressOfYElement(potentialCapitalArray,capital);
+      potentialCapitalArray.splice(index,1);
+      var name = 'interest ' + id;
+      var color = idToColor(i);
+      var newInt = new interest(capital,name,color,id);
+      capital.influence = {};
+      capital.influence[id] = 100;
       capital.strokeColor = color;
       interestArray.push(newInt);
+
+    }
+    function idToColor(id){
+      switch(id){
+        case 0:
+          return 'red';
+          break;
+        case 1:
+          return 'orange';
+          break;
+        case 2:
+          return 'yellow';
+          break;
+        case 3:
+          return 'green';
+          break;
+        case 4:
+          return 'blue';
+          break;
+        case 5:
+          return 'purple';
+          break;
+        case 6:
+          return 'grey';
+          break;
+        case 7:
+          return 'teal';
+          break;
+        case 8:
+          return 'olive';
+          break;
+        case 9:
+          return 'silver';
+          break;
+        case 10:
+          return 'maroon';
+          break;
+        case 11:
+          return 'lime';
+          break;
+        case 12:
+          return 'aqua';
+          break;
+        case 13:
+          return 'fuchsia';
+          break;
+        case 14:
+          return 'navy';
+          break;
+        default:
+          return 'white';
+          break;
+      }
     }
     //During creation, interests expand to unoccupied adjacent regions.
     //Greater weight is given to tiles next to the coast and tiles that have more than
     //one allied region. Continue until there are no valid moves for any of the interests.
 
+    var nationsToExpand = interestArray;
+    while(nationsToExpand.length > 0){
+      //Choose a random nation. Expand it.
+      var IdOfnationInQuestion = Math.floor(Math.random()*nationsToExpand.length);
+      if(!expand(nationsToExpand[IdOfnationInQuestion])){
+        nationsToExpand.splice(IdOfnationInQuestion,1);
+      }
+      nationsToExpand = [];
+    }
+    //Given a nation, expand that nation. Return true if able to expand. Else return false.
+    function expand(nation){
+      //Assemble weighted array of potential expansions.
+      var weightedExpansionArray = [];
+      var ownedRegions = getTotalInfluenceForInterest(nation.id,regionArray); //Get array of owned regions.
+      //For each owned region, see what regions are valid. Give each region a weight.
+      for(var i=0;i<ownedRegions.length;i++){
+        var adjArray = getAdjacentHexes(ownedRegions[i]);
+        for(var q=0;q<adjArray.length;q++){
+          //if land, unowned, and not in the weightedExpansionArray already, add it to the WEA and give it a weight.
+
+          //if water, use coastalDistance() to find nearby hexes that are land, unowned, and not in the WEA.
+
+        }
+      }
+
+      //If the WEA is length 0
+        //return false.
+      //Choose a region, expand to it.
+        //Return true.
+    }
   }
   function createPMCs(){
 
@@ -740,8 +829,8 @@ paper.view.onFrame = function(event){
 
 
 //UTILITY FUNCTIONS
-function isRealObject(object){
-  if(object !== 'null' && object !== 'undefined'){
+function isRealObject(obj){
+  if(obj !== null && obj !== undefined){
     return true;
   }
   return false;
@@ -866,9 +955,6 @@ function selectElementRandomlyFromWeightedArray(wArray){
   }
 }
 
-})();
-
-};
 //Given a region and a number, return an array of regions that are within that distance via water.
 function coastalDistance(region,dist){
   var foundRegions = [];
@@ -906,3 +992,23 @@ function getTownArray(rArray){
   }
   return tArray;
 }
+
+function getTotalInfluenceForInterest(interId,rArray){
+  var infArray = [];
+  for(var x=0;x<rArray.length;x++){
+    for(y=0;y<rArray[x].length;y++){
+      if(isRealObject(rArray[x][y].influence)){
+        if(interId.toString() === Object.keys(rArray[x][y].influence)[0]){
+          infArray.push(rArray[x][y]);
+        }
+      }
+    }
+  }
+  console.log(infArray);
+}
+
+
+//END OF MODULE
+})();
+
+};
