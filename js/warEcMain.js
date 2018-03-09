@@ -148,8 +148,6 @@ var gameManager = (function(){
       var borderLine = new paper.Path(startPoint,endPoint);
       borderLine.strokeColor = color;
       borderLine.strokeWidth = 3;
-      borderLine.shadowColor = color;
-      //borderLine.shadowBlur = 5;
       borderLine.rotate(90);
       /**
       borderLine.shadowColor = color;
