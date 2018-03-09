@@ -137,10 +137,19 @@ var gameManager = (function(){
 
     //Given a region, a bordering region, a position, and a color, draw a border between them.
     function drawBorderBetween(r1,r2,color){
-      var connectLine = new paper.Path(new paper.Point(r1.position),new paper.Point(r2.position.x,r2.position.y));
-      var borderLine = new paper.Path(new paper.Point(r1.position),new paper.Point(r2.position.x,r2.position.y));
+      var vec = new paper.Point(r2.position.x - r1.position.x,r2.position.y-r1.position.y);
+      var len = Math.sqrt(Math.pow((r2.position.x - r1.position.x),2) + Math.pow((r2.position.y - r1.position.y),2));
+      var len = Math.sqrt(Math.pow((r2.position.x - r1.position.x),2) + Math.pow((r2.position.y - r1.position.y),2));
+      var normVec = new paper.Point(vec.x/len,vec.y/len);
+      var startDist = 6;
+      var dist = 26;
+      var startPoint = new paper.Point(r1.position.x + normVec.x*startDist, r1.position.y + normVec.y*startDist);
+      var endPoint = new paper.Point(r1.position.x + normVec.x*dist, r1.position.y + normVec.y*dist);
+      var borderLine = new paper.Path(startPoint,endPoint);
       borderLine.strokeColor = color;
-      borderLine.strokeWidth = 5;
+      borderLine.strokeWidth = 3;
+      borderLine.shadowColor = color;
+      //borderLine.shadowBlur = 5;
       borderLine.rotate(90);
       /**
       borderLine.shadowColor = color;
@@ -613,7 +622,6 @@ var worldGeneratorModule = (function(){
       var newInt = new interest(capital,name,color,id);
       capital.influence = {};
       capital.influence[id] = 100;
-      capital.strokeColor = color;
       interestArray.push(newInt);
     }
     function idToColor(id){
