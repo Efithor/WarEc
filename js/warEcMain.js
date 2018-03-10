@@ -116,9 +116,7 @@ paper.view.onFrame = function(event){
 //Creates a series of hexagonal reigon objects for the game to take place on.
 //A reigon is a paper object with other attributes ascribed to it.
 function createRegions(){
-  var regionArray = [];
-  regionArray = createHexagonalGrid(20,25,20,50,50);
-  setupLand(regionArray);
+  var regionArray = setupLand();
   setupRegionBiomes(regionArray, 0.25,0.25,0.25);
 }
 //Given a certain radius, quantity, and origin, create a hexagonal grid.
@@ -142,7 +140,9 @@ function createHexagonalGrid(radius,xCount,yCount,xOrig,yOrig){
   return regArray;
 }
 //Given a region array, create landmasses
-function setupLand(rArray){
+function setupLand(){
+  rArray = [];
+  rArray = createHexagonalGrid(20,25,20,50,50);
   //Set the left and right borders to be water.
   for(var y=0;y<rArray[0].length;y++){
     rArray[0][y].fillColor = '#0a48ad';
@@ -224,10 +224,12 @@ function setupLand(rArray){
 
   //Ensure the landmasses we just generated are valid.
   if(!checkLandmass(rArray,.35)){
-    createRegions();
-  }else{
-    return;
+    console.log('Not enough land, rejecting...');
+    rArray = [];
+    setupLand(rArray);
   }
+
+  return rArray;
 }
 //Given a region array, verify if there's enough land.
 function checkLandmass(rArray,minPercentNeeded){
@@ -260,14 +262,14 @@ function setupRegionBiomes(regionArray, mountainPercent, forestPercent, desertPe
 
   //Place a number of towns relative to the size of the map.
   //Biased towards coasts, temperate, and tropical areas.
-  createTowns(regionArray);
+  createTowns(regionArray,0.15);
   //Upgrade a percentage of the towns to cities
   //Biased towards cities that have more towns nearby.
   upgradeTownsToCities(regionArray,0.15);
 
 }
 
-function createTowns(regionArray){
+function createTowns(regionArray,townPercent){
   var potentialTownArray = [];
   //Create array with all valid regions, giving a weight to each region.
   for(var x=0;x<regionArray.length;x++){
@@ -275,18 +277,66 @@ function createTowns(regionArray){
       if(regionArray[x][y].isLand){
         var weight = 10;
         if(isTemperate(regionArray[x][y]) || isTropical(regionArray[x][y])){
-          weight = weight + 5;
-        }
-        if(isCoastal(regionArray[x][y])){
           weight = weight + 10;
         }
-        potentialTownArray.push([regionArray[x][y],weight);
+        if(isCoastal(regionArray, regionArray[x][y])){
+          weight = weight + 10;
+        }
+        potentialTownArray.push([regionArray[x][y],weight]);
       }
     }
   }
-  //Choose a region at random, that region gets a town.
-  //Remove the region from the weighted array.
-  //Repeat until sufficient number of towns are created.
+  var townCount = 0;
+  var totalLand = getTotalLandTiles(regionArray);
+  while(townCount/totalLand < townPercent){
+    //Choose a region at random, that region gets a town.
+    var chosenElement = selectElementRandomlyFromWeightedArray(potentialTownArray);
+    giveRegionTown(chosenElement[0]);
+    townCount++;
+    //Remove the region from the weighted array.
+    potentialTownArray.slice(getXArrayAddressOfYElement(potentialTownArray,chosenElement));
+  }
+}
+
+function giveRegionTown(region){
+  region.townIcon = new paper.PointText();
+  region.townIcon.position.x = region.position.x-9;
+  region.townIcon.position.y = region.position.y+12;
+  region.townIcon.fontSize = 28;
+  region.townIcon.content = 'T';
+}
+
+function isTemperate(region){
+  if(region.tempZone === 'temperate'){
+    return true;
+  }
+  return false;
+}
+
+function isTropical(region){
+  if(region.tempZone === 'tropical'){
+    return true;
+  }
+  return false;
+}
+
+function isArtic(region){
+  if(region.tempZone === 'artic'){
+    return true;
+  }
+  return false;
+}
+
+function isCoastal(rArray, region){
+  var adjArray = getAdjacentHexes(rArray, region);
+  for(var i=0; i<adjArray.length;i++){
+    if(adjArray[i] != undefined){
+      if(!adjArray[i].isLand){
+        return true;
+      }
+    }
+  }
+  return false;
 }
 
 function upgradeTownsToCities(regionArray,percentage){
@@ -422,18 +472,22 @@ function createTempZones(rArray){
       if(y<=nHemArticMaxY || y>=sHemArticMinY){
         if(rArray[x][y].biome === 'plain'){
           rArray[x][y].biome = 'tundra';
+          rArray[x][y].tempZone = 'artic';
           colorBiome(rArray[x][y]);
         }
         if(rArray[x][y].biome === 'desert'){
           rArray[x][y].biome = 'tundra';
+          rArray[x][y].tempZone = 'artic';
           colorBiome(rArray[x][y]);
         }
         if(rArray[x][y].biome === 'forest'){
           rArray[x][y].biome = 'boreal forest';
+          rArray[x][y].tempZone = 'artic';
           colorBiome(rArray[x][y]);
         }
         if(rArray[x][y].biome === 'mountain'){
           rArray[x][y].biome = 'snowyMoutain';
+          rArray[x][y].tempZone = 'artic';
           colorBiome(rArray[x][y]);
         }
       }
@@ -441,18 +495,22 @@ function createTempZones(rArray){
       if(y<=nHemTempMaxY && y>nHemArticMaxY || y>=sHemTempMinY && y<sHemArticMinY){
         if(rArray[x][y].biome === 'plain'){
           rArray[x][y].biome = 'grassland';
+          rArray[x][y].tempZone = 'temperate';
           colorBiome(rArray[x][y]);
         }
         if(rArray[x][y].biome === 'desert'){
           rArray[x][y].biome = 'desert';
+          rArray[x][y].tempZone = 'temperate';
           colorBiome(rArray[x][y]);
         }
         if(rArray[x][y].biome === 'forest'){
           rArray[x][y].biome = 'forest';
+          rArray[x][y].tempZone = 'temperate';
           colorBiome(rArray[x][y]);
         }
         if(rArray[x][y].biome === 'mountain'){
           rArray[x][y].biome = 'snow-capped mountain';
+          rArray[x][y].tempZone = 'temperate';
           colorBiome(rArray[x][y]);
         }
       }
@@ -460,18 +518,22 @@ function createTempZones(rArray){
       if(y<=tropMaxY && y>nHemArticMaxY && y>nHemTempMaxY){
         if(rArray[x][y].biome === 'plain'){
           rArray[x][y].biome = 'swamp';
+          rArray[x][y].tempZone = 'tropical';
           colorBiome(rArray[x][y]);
         }
         if(rArray[x][y].biome === 'desert'){
           rArray[x][y].biome = 'desert';
+          rArray[x][y].tempZone = 'tropical';
           colorBiome(rArray[x][y]);
         }
         if(rArray[x][y].biome === 'forest'){
           rArray[x][y].biome = 'jungle';
+          rArray[x][y].tempZone = 'tropical';
           colorBiome(rArray[x][y]);
         }
         if(rArray[x][y].biome === 'mountain'){
           rArray[x][y].biome = 'mountain';
+          rArray[x][y].tempZone = 'tropical';
           colorBiome(rArray[x][y]);
         }
       }
@@ -481,6 +543,17 @@ function createTempZones(rArray){
 
 //Creates a number of interest objects to compete over regions.
 function createInterests(){
+  //Create Nations
+  //Nations seek to expand influence in a contiguous fashion.
+
+  //Create Nationalists
+  //Nationalits seek to secure influence in a specific set of regions.
+
+  //Create Corporations
+  //Corporations seek to secure influence owned by other Corporations.
+
+  //Terrorists
+  //Terrorists seek to secure influence over a specific nation.
 
 }
 //Creates a set of PMC objects to work for the interests.
@@ -793,4 +866,19 @@ function getTotalLandTiles(rArray){
     }
   }
   return landTiles;
+}
+
+function selectElementRandomlyFromWeightedArray(wArray){
+  var sumOfWeights = 0;
+  for(var i=0; i<wArray.length; i++){
+    sumOfWeights = sumOfWeights + wArray[i][1];
+  }
+  var chosenValue = Math.random()*sumOfWeights;
+  var q = 0;
+  for(var i=0;i<wArray.length;i++){
+    q = q + wArray[i][1];
+    if(chosenValue <= q){
+      return wArray[i];
+    }
+  }
 }
