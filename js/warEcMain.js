@@ -91,7 +91,7 @@ paperTool.onMouseDown = function(event){
 
 var gameManager = (function(){
   function publicStartGame(){
-      updateBorders();
+    updateBorders(regionArray);
   }
   function publicEndTurn(){
     PMCTurns();
@@ -118,26 +118,34 @@ var gameManager = (function(){
   function influenceChecks(){
 
   }
-  function updateBorders(regionArray){
+  function updateBorders(){
     var borderWidth = 5;
     for(var x=0;x<regionArray.length;x++){
       for(var y=0;y<regionArray[x].length;y++){
         if(regionArray[x][y].isLand && isRealObject(regionArray[x][y].influence)){
-          var adjArray = getAdjacentHexes(regionArray[x][y]);
+          var adjArray = getAdjacentHexes(regionArray,regionArray[x][y]);
           for(var i=0;i<adjArray.length;i++){
             //If the dominant interest is different than the domI for the adjacent hex, draw a line on the border
             //Between them in the locally dominant color.
-            if(getDomInterest(regionArray[x][y]) != getDomInterest(adjArray[i])){
-              drawBorderBetween(regionArray[x][y],adjArray[i],getDomInterest(regionArray[x][y].color));
+            if(getDomInterest(regionArray[x][y]) != getDomInterest(adjArray[i]) && isRealObject(adjArray[i])){
+              drawBorderBetween(regionArray[x][y],adjArray[i],getDomInterest(regionArray[x][y]).color);
             }
           }
         }
       }
     }
 
-    //Given a region, a bordering region, and a color, draw a border between them.
-    drawBorderBetween(r1,r2,color){
-
+    //Given a region, a bordering region, a position, and a color, draw a border between them.
+    function drawBorderBetween(r1,r2,color){
+      var connectLine = new paper.Path(new paper.Point(r1.position),new paper.Point(r2.position.x,r2.position.y));
+      var borderLine = new paper.Path(new paper.Point(r1.position),new paper.Point(r2.position.x,r2.position.y));
+      borderLine.strokeColor = color;
+      borderLine.strokeWidth = 5;
+      borderLine.rotate(90);
+      /**
+      borderLine.shadowColor = color;
+      borderLine.shadowBlur = 10;
+      **/
     }
   }
   //Calculates the new value of each regions wealth.
@@ -214,7 +222,7 @@ var worldGeneratorModule = (function(){
           newRegion.position.x = newRegion.position.x + (Math.sqrt(3)/2*radius*2)/2;
         }
         newRegion.strokeColor = 'black';
-        newRegion.strokeWidth = 3;
+        newRegion.strokeWidth = 2;
         newRegion.xCord = x;
         newRegion.yCord = y;
         newRegion.isLand = undefined;
@@ -607,7 +615,6 @@ var worldGeneratorModule = (function(){
       capital.influence[id] = 100;
       capital.strokeColor = color;
       interestArray.push(newInt);
-
     }
     function idToColor(id){
       switch(id){
@@ -665,7 +672,7 @@ var worldGeneratorModule = (function(){
     //During creation, interests expand to unoccupied adjacent regions.
     //Greater weight is given to tiles next to the coast and tiles that have more than
     //one allied region. Continue until there are no valid moves for any of the interests.
-    var nationsToExpand = interestArray;
+    var nationsToExpand = interestArray.slice();
     while(nationsToExpand.length > 0){
       //Choose a random nation. Expand it.
       var IdOfnationInQuestion = Math.floor(Math.random()*nationsToExpand.length);
@@ -717,7 +724,6 @@ var worldGeneratorModule = (function(){
         var adjRegs = getAdjacentHexes(rArray,reg);
         for(var i=0;i<adjRegs.length;i++){
           if(isRealObject(adjRegs[i]) && isRealObject(adjRegs[i].influence)){
-            console.log(adjRegs[i].influence);
             var infArray = [];
             for(var q=0;q<adjRegs[i].influence.length;q++){
               infArray.push(Object.keys(adjRegs[i].influence[q])[0]);
@@ -852,6 +858,7 @@ var mainMenu = (function(){
   //Start a new game.
   function newGame(){
     worldGeneratorModule.genWorld();
+    gameManager.startGame();
   }
   //Shows a menu with three load slots.
   function loadGameMenu(){
@@ -1089,7 +1096,17 @@ function getTotalInfluenceForInterest(interId,rArray){
 
 //Given a region, return the dominant interst in it.
 function getDomInterest(reg){
-  
+  if(!isRealObject(reg) || !isRealObject(reg.influence)){
+    return false;
+  }
+  var keys = Object.keys(reg.influence);
+  var biggestKey = keys[0];
+  for(var i=1;i<keys.length;i++){
+    if(reg.influence[biggestKey] < reg.influence[i]){
+      biggestKey = reg.influence;
+    }
+  }
+  return interestArray[biggestKey];
 }
 
 //END OF MODULE
