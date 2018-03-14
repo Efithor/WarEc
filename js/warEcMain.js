@@ -643,7 +643,6 @@ var worldGeneratorModule = (function(){
       if(!expand(nationsToExpand[IdOfnationInQuestion])){
         nationsToExpand.splice(IdOfnationInQuestion,1);
       }
-      nationsToExpand = [];
     }
     //Given a nation, expand that nation. Return true if able to expand. Else return false.
     function expand(nation){
@@ -655,16 +654,29 @@ var worldGeneratorModule = (function(){
         var adjArray = getAdjacentHexes(ownedRegions[i]);
         for(var q=0;q<adjArray.length;q++){
           //if land, unowned, and not in the weightedExpansionArray already, add it to the WEA and give it a weight.
-
+          if(isRealObject(adjArray[q]) && adjArray[q].isLand && adjArray[q].influence === undefined && !doesXArrayContainYElement(getKeysFromWeightedArray(weightedExpansionArray),adjArray[q])){
+            weightedExpansionArray.push([adjArray[q],1]);
+          }
           //if water, use coastalDistance() to find nearby hexes that are land, unowned, and not in the WEA.
-
+          if(isRealObject(adjArray[q]) && !adjArray[q].isLand){
+            var coastalArray = coastalDistance(adjArray[q],2);
+            for(var w=0; w<coastalArray.length;w++){
+              if(coastalArray[w].isLand && coastalArray[w].influence === undefined && !doesXArrayContainYElement(getKeysFromWeightedArray(weightedExpansionArray),coastalArray[w])){
+                weightedExpansionArray.push([coastalArray[w],1]);
+              }
+            }
+          }
         }
       }
 
-      //If the WEA is length 0
-        //return false.
-      //Choose a region, expand to it.
-        //Return true.
+      if(weightedExpansionArray.length <= 0){
+        return false;
+      }else{
+        var chosenElement = selectElementRandomlyFromWeightedArray(weightedExpansionArray);
+        chosenElement.influence[nation.id] = 100;
+        chosenElement.strokeColor = nation.color;
+        return true;
+      }
     }
   }
   function createPMCs(){
@@ -953,6 +965,14 @@ function selectElementRandomlyFromWeightedArray(wArray){
       return wArray[i];
     }
   }
+}
+
+function getKeysFromWeightedArray(wArray){
+  var keys = [];
+  for(var i=0;i<wArray.length;i++){
+    keys.push(wArray[i][0]);
+  }
+  return keys;
 }
 
 //Given a region and a number, return an array of regions that are within that distance via water.
