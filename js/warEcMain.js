@@ -90,16 +90,21 @@ paperTool.onMouseDown = function(event){
 }
 
 var gameManager = (function(){
-  function endTurn(){
+  function publicStartGame(){
+      updateBorders();
+  }
+  function publicEndTurn(){
     PMCTurns();
     battleChecks();
     influenceChecks();
+    updateBorders();
     weathChecks();
     interestTurns();
     tabulatePMCIncome();
     tabulatePMCStockPrice();
     incrementTurnCount();
   }
+
   //End Turn Functions
   //Has the AI PMCs recruit, disband, adjust, train, deploy, and accept.
   function PMCTurns(){
@@ -112,6 +117,28 @@ var gameManager = (function(){
   //Calculates the new value of each region's influence.
   function influenceChecks(){
 
+  }
+  function updateBorders(regionArray){
+    var borderWidth = 5;
+    for(var x=0;x<regionArray.length;x++){
+      for(var y=0;y<regionArray[x].length;y++){
+        if(regionArray[x][y].isLand && isRealObject(regionArray[x][y].influence)){
+          var adjArray = getAdjacentHexes(regionArray[x][y]);
+          for(var i=0;i<adjArray.length;i++){
+            //If the dominant interest is different than the domI for the adjacent hex, draw a line on the border
+            //Between them in the locally dominant color.
+            if(getDomInterest(regionArray[x][y]) != getDomInterest(adjArray[i])){
+              drawBorderBetween(regionArray[x][y],adjArray[i],getDomInterest(regionArray[x][y].color));
+            }
+          }
+        }
+      }
+    }
+
+    //Given a region, a bordering region, and a color, draw a border between them.
+    drawBorderBetween(r1,r2,color){
+
+    }
   }
   //Calculates the new value of each regions wealth.
   function weathChecks(){
@@ -134,7 +161,8 @@ var gameManager = (function(){
 
   }
   return {
-    endTurn: endTurn
+    startGame: publicStartGame,
+    endTurn: publicEndTurn
   }
 })();
 
@@ -562,6 +590,7 @@ var worldGeneratorModule = (function(){
       }
     }
   }
+
   function createInterests(){
     var potentialCapitalArray = getTownArray(regionArray);
     var numTowns = potentialCapitalArray.length;
@@ -632,18 +661,20 @@ var worldGeneratorModule = (function(){
           break;
       }
     }
+
     //During creation, interests expand to unoccupied adjacent regions.
     //Greater weight is given to tiles next to the coast and tiles that have more than
     //one allied region. Continue until there are no valid moves for any of the interests.
-
     var nationsToExpand = interestArray;
     while(nationsToExpand.length > 0){
       //Choose a random nation. Expand it.
       var IdOfnationInQuestion = Math.floor(Math.random()*nationsToExpand.length);
-      if(!expand(nationsToExpand[IdOfnationInQuestion])){
+      var canExpand = expand(nationsToExpand[IdOfnationInQuestion]);
+      if(!canExpand){
         nationsToExpand.splice(IdOfnationInQuestion,1);
       }
     }
+
     //Given a nation, expand that nation. Return true if able to expand. Else return false.
     function expand(nation){
       //Assemble weighted array of potential expansions.
@@ -651,34 +682,62 @@ var worldGeneratorModule = (function(){
       var ownedRegions = getTotalInfluenceForInterest(nation.id,regionArray); //Get array of owned regions.
       //For each owned region, see what regions are valid. Give each region a weight.
       for(var i=0;i<ownedRegions.length;i++){
-        var adjArray = getAdjacentHexes(ownedRegions[i]);
+        var adjArray = getAdjacentHexes(regionArray,ownedRegions[i]);
         for(var q=0;q<adjArray.length;q++){
           //if land, unowned, and not in the weightedExpansionArray already, add it to the WEA and give it a weight.
           if(isRealObject(adjArray[q]) && adjArray[q].isLand && adjArray[q].influence === undefined && !doesXArrayContainYElement(getKeysFromWeightedArray(weightedExpansionArray),adjArray[q])){
-            weightedExpansionArray.push([adjArray[q],1]);
+            var weight = getWeight(adjArray[q],regionArray,nation);
+            weightedExpansionArray.push([adjArray[q],weight]);
           }
           //if water, use coastalDistance() to find nearby hexes that are land, unowned, and not in the WEA.
           if(isRealObject(adjArray[q]) && !adjArray[q].isLand){
-            var coastalArray = coastalDistance(adjArray[q],2);
+            var coastalArray = coastalDistance(adjArray[q],2,regionArray);
             for(var w=0; w<coastalArray.length;w++){
               if(coastalArray[w].isLand && coastalArray[w].influence === undefined && !doesXArrayContainYElement(getKeysFromWeightedArray(weightedExpansionArray),coastalArray[w])){
-                weightedExpansionArray.push([coastalArray[w],1]);
+                var weight = getWeight(coastalArray[w],regionArray,nation);
+                weightedExpansionArray.push([coastalArray[w],weight]);
               }
             }
           }
         }
       }
-
       if(weightedExpansionArray.length <= 0){
         return false;
       }else{
         var chosenElement = selectElementRandomlyFromWeightedArray(weightedExpansionArray);
-        chosenElement.influence[nation.id] = 100;
-        chosenElement.strokeColor = nation.color;
+        chosenElement[0].influence = {};
+        chosenElement[0].influence[nation.id] = 100;
         return true;
       }
+
+      function getWeight(reg,rArray,nat){
+        //Base 10
+        var w = 10;
+        //Add 5 for each adj reg owned by nation.
+        var adjRegs = getAdjacentHexes(rArray,reg);
+        for(var i=0;i<adjRegs.length;i++){
+          if(isRealObject(adjRegs[i]) && isRealObject(adjRegs[i].influence)){
+            console.log(adjRegs[i].influence);
+            var infArray = [];
+            for(var q=0;q<adjRegs[i].influence.length;q++){
+              infArray.push(Object.keys(adjRegs[i].influence[q])[0]);
+            }
+            if(doesXArrayContainYElement(infArray,nation.id.toString())){
+              w = w + 5;
+            }
+          }
+        }
+        //Add 10 for town.
+        if(reg.hasTown){
+          w = w + 10;
+        }
+        return w
+      }
     }
+
+    //Update borders.
   }
+
   function createPMCs(){
 
   }
@@ -976,13 +1035,14 @@ function getKeysFromWeightedArray(wArray){
 }
 
 //Given a region and a number, return an array of regions that are within that distance via water.
-function coastalDistance(region,dist){
+function coastalDistance(region,dist,rArray){
   var foundRegions = [];
   var checkedRegions = [];
   var currDepth = 0;
+  checkRegion(region);
   function checkRegion(region){
     checkedRegions.push(region);
-    var adjArray = getAdjacentHexes(region);
+    var adjArray = getAdjacentHexes(rArray,region);
     if(currDepth < dist){
       for(var i=0;i<adjArray.length;i++){
         if(adjArray[i]!=undefined){
@@ -1024,9 +1084,13 @@ function getTotalInfluenceForInterest(interId,rArray){
       }
     }
   }
-  console.log(infArray);
+  return infArray;
 }
 
+//Given a region, return the dominant interst in it.
+function getDomInterest(reg){
+  
+}
 
 //END OF MODULE
 })();
