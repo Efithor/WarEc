@@ -39,19 +39,24 @@ class PMC {
     this.ownedRegiments = [];
   }
   takeTurn(){
-
+    //Determine if new regiments can be recruited.
+    this.manageRegiments();
+    //If there's any contracts that the PMC can fufill, accept them.
+    this.manageContracts();
+    //Deploy regiments to fufill obligations.
+    this.manageDeployments();
   }
-  recruitRegiment(){
-
+  manageRegiements(){
+    //If the PMC's income can suport more regiments, hire them. If it can't, remove them until it does.
   }
-  deployRegiment(){
-
+  manageContracts(){
+    //Sort contracts by attractiveness.
+    //If a contract has become unattractive enough to warrent cancelling it, do so.
+    //If the PMC does not have regiements to cover contracts, cancel least attractive contracts.
+    //Accept the most attractive contracts, if able.
   }
-  acceptContract(){
-
-  }
-  cancelContract(){
-
+  manageDeployments(){
+    //Deploy troops to cover contracts.
   }
 }
 class regiment{
@@ -84,12 +89,20 @@ class interest {
   takeTurn(){
     //Tabulate income.
     this.tabulateIncome();
+    //Determine the amount of money that can be spent on contracts this turn.
+    //Determine what contracts are needed. Sort by priority.
+      //Defencive
+      //Offencive
+    //If a currently existing contract has
+    //Create the contracts that can be afforded.
+
+    /**
     //Determine if more contracts can be supported.
     if(this.contractsOutstanding < totalContractsPotential(this)){
       //Determine where this interest would like to expand.
       var expansionOptions = regionsInStrikingDist(regionArray,this.id);
       var expansionOptionsWeighted = giveExpansiosnWeights(expansionOptions);
-      this.createContract(selectElementRandomlyFromWeightedArray(expansionOptionsWeighted));
+      this.createContract(this,selectElementRandomlyFromWeightedArray(expansionOptionsWeighted));
     }
     function giveExpansiosnWeights(expArr){
       var weightedExpArr = [];
@@ -101,9 +114,10 @@ class interest {
     function totalContractsPotential(interest){
       return Math.floor(interest.treasury/10);
     }
+    **/
   }
-  createContract(region){
-    contractArray.push(new contract(nation,region));
+  createContract(inter,region){
+    contractArray.push(new contract(inter,region));
   }
   recindContract(){
 
@@ -118,7 +132,7 @@ class interest {
   }
 }
 class contract {
-  constructor(owner,region){
+  constructor(owner,region,targets,duration){
     this.issuedBy = owner;
     this.region = region;
     this.contractor = 'none';
