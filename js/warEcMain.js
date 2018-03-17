@@ -20,6 +20,8 @@ var mousePos;
 var buttonArray = [];
 var regionArray = [];
 var interestArray = [];
+var PMCArray = [];
+var contractArray = [];
 
 //Initialize paper
 var canvas = document.getElementById('myCanvas');
@@ -28,6 +30,17 @@ paperTool = new paper.Tool();
 
 //Object Classes
 class PMC {
+  constructor(name,id,startingWealth,startingStock,isPlayer){
+    this.name = name;
+    this.id = id;
+    this.startingWealth = startingWealth;
+    this.startingStock = startingStock;
+    this.isPlayer= isPlayer;
+    this.ownedRegiments = [];
+  }
+  takeTurn(){
+
+  }
   recruitRegiment(){
 
   }
@@ -65,18 +78,52 @@ class interest {
     this.name = name;
     this.color = color;
     this.id = id;
+    this.treasury = 0;
+    this.contractsOutstanding = 0;
   }
   takeTurn(){
+    //Tabulate income.
+    this.tabulateIncome();
+    //Determine if more contracts can be supported.
+    if(this.contractsOutstanding < totalContractsPotential(this)){
+      //Determine where this interest would like to expand.
+      var expansionOptions = regionsInStrikingDist(regionArray,this.id);
+      var expansionOptionsWeighted = giveExpansiosnWeights(expansionOptions);
+      this.createContract(selectElementRandomlyFromWeightedArray(expansionOptionsWeighted));
+    }
+    function giveExpansiosnWeights(expArr){
+      var weightedExpArr = [];
+      for(var i=0;i<expArr.length;i++){
+        weightedExpArr.push([expArr[i],expArr[i].wealth]);
+      }
+      return weightedExpArr;
+    }
+    function totalContractsPotential(interest){
+      return Math.floor(interest.treasury/10);
+    }
+  }
+  createContract(region){
+    console.log(this.name + ' contract for ' + region);
+  }
+  recindContract(){
 
   }
-  createContract(){
-
-  }
-  recondContract(){
-
+  tabulateIncome(){
+    var totalIncome = 0;
+    var ownedRegions = getTotalInfluenceForInterest(this.id,regionArray);
+    for(var i=0;i<ownedRegions.length;i++){
+      totalIncome = totalIncome + ownedRegions[i].wealth;
+    }
+    this.treasury = this.treasury + totalIncome;
   }
 }
-
+class contract {
+  constructor(owner,region){
+    this.issuedBy = owner;
+    this.region = region;
+    this.contractor = 'none';
+  }
+}
 //Keep track of mouse position.
 paperTool.onMouseMove = function(event){
   mousePos = event.point;
@@ -92,21 +139,30 @@ paperTool.onMouseDown = function(event){
 var gameManager = (function(){
   function publicStartGame(){
     updateBorders(regionArray);
+    interestTurns();
+    drawGameUI();
   }
   function publicEndTurn(){
+    console.log('End Turn!');
     PMCTurns();
     battleChecks();
     influenceChecks();
     updateBorders();
     weathChecks();
-    interestTurns();
     tabulatePMCIncome();
     tabulatePMCStockPrice();
+    interestTurns();
     incrementTurnCount();
   }
 
   //End Turn Functions
   //Has the AI PMCs recruit, disband, adjust, train, deploy, and accept.
+
+  function drawGameUI(){
+    //End Turn Button
+    createButton(120,50,new paper.Point(paper.view.center.x+350,paper.view.center.y+300),'END TURN',function(){gameManager.endTurn()});
+  }
+
   function PMCTurns(){
 
   }
@@ -161,7 +217,11 @@ var gameManager = (function(){
   }
   //Has each interest create and recind contracts.
   function interestTurns(){
-
+    for(var i=0;i<interestArray.length;i++){
+      if(!interestArray[i].isPlayer){
+        interestArray[i].takeTurn();
+      }
+    }
   }
   //Calculate each PMC's expenditures and income
   function tabulatePMCIncome(){
@@ -216,7 +276,8 @@ var worldGeneratorModule = (function(){
     //Upgrade a percentage of the towns to cities
     //Biased towards cities that have more towns nearby.
     upgradeTownsToCities(regionArray,0.15);
-
+    //Setup wealth values for each region.
+    setupWealth(regionArray);
   }
   //Given a certain radius, quantity, and origin, create a hexagonal grid.
   function createHexagonalGrid(radius,xCount,yCount,xOrig,yOrig){
@@ -412,6 +473,25 @@ var worldGeneratorModule = (function(){
     //Remove the region from the weighted array.
     //Recalculate weights, nearby cities lower the weight.
     //Repeat until sufficent
+  }
+  function setupWealth(rArray){
+    var func = function(reg){
+      if(reg.isLand){
+        var rWealth = 10;
+        if(reg.hasTown){
+          rWealth = rWealth + 40;
+        }
+        if(reg.isTemperate){
+          rWealth = rWealth + 10;
+        }
+        if(reg.isTropical){
+          rWealth = rWealth + 20;
+        }
+        reg.wealth = rWealth;
+      }
+    }
+    interateOverRegionArray(rArray,func);
+    console.log(rArray);
   }
   //Choose a random land square and put a biomeType on it.
   //Either grab a random adjacent squre (80% chance?) and put a biomeType
@@ -746,12 +826,19 @@ var worldGeneratorModule = (function(){
         return w
       }
     }
-
-    //Update borders.
   }
 
   function createPMCs(){
-
+    var pmcCount = 6;
+    for(var i=0;i<pmcCount;i++){
+      var name = 'PMC ' + i;
+      var isPlayer = false;
+      if(i===0){
+        isPlayer = true;
+      }
+      var newPMC = new PMC(name,i,100,10,isPlayer);
+      PMCArray.push(newPMC);
+    }
   }
   return {
     genWorld: publicGenerateWorld
@@ -1085,7 +1172,7 @@ function getTownArray(rArray){
   }
   return tArray;
 }
-
+//Given an interest and a region array, return an array of all regions that interest has power.
 function getTotalInfluenceForInterest(interId,rArray){
   var infArray = [];
   for(var x=0;x<rArray.length;x++){
@@ -1113,6 +1200,69 @@ function getDomInterest(reg){
     }
   }
   return interestArray[biggestKey];
+}
+//Create a button. Takes an x size and a y size,a paper.Point, a string, and a function that fires when the button is clicked.
+function createButton(sizeX,sizeY,pos,cont,clickFunc){
+  //Create a button
+  var newButtonPanel = new paper.Path.Rectangle(new paper.Point(0,0),new paper.Point(sizeX,sizeY));
+  newButtonPanel.fillColor = '#9b5d5d';
+  newButtonPanel.strokeColor = 'black';
+  newButtonPanel.strokeWidth = 7;
+  var newButtonText = new paper.PointText(new paper.Point((newButtonPanel.position.x-45), newButtonPanel.position.y+5));
+  newButtonText.content = cont;
+  newButtonText.fontSize = 18;
+  newButton = new paper.Group([newButtonPanel,newButtonText]);
+  newButton.position = new paper.Point(pos);
+  newButton.highlightable = true;
+  newButton.isHighlighted = false;
+  newButton.checkHovers = function(){
+    if(!this.isHighlighted && this.contains(mousePos)){
+      this.children[0].strokeColor = 'red';
+      this.isHighlighted = true;
+    }
+    if(this.isHighlighted && !this.contains(mousePos)){
+      this.children[0].strokeColor = 'black';
+      this.isHighlighted = false;
+    }
+  }
+  newButton.checkClick = function(eventPos){
+    if(this.contains(eventPos)){
+      clickFunc();
+    }
+  }
+  buttonArray.push(newButton);
+}
+//Given a regionArray and a function, iterate over it.
+function interateOverRegionArray(rArray,func){
+  for(var x=0;x<rArray.length;x++){
+    for(var y=0;y<rArray[y].length;y++){
+      func(rArray[x][y]);
+    }
+  }
+}
+//Given a regionArry and a nation id, return all regions in striking distance.
+function regionsInStrikingDist(rArray,nID){
+  var strikingDistArray = [];
+  var ownedRegions = getTotalInfluenceForInterest(nID,rArray);
+  for(var i=0;i<ownedRegions.length;i++){
+    var adjArray = getAdjacentHexes(rArray,ownedRegions[i]);
+    for(var q=0;q<adjArray.length;q++){
+      //if land, unowned, and not in the weightedExpansionArray already, add it to the WEA and give it a weight.
+      if(isRealObject(adjArray[q]) && adjArray[q].isLand && !doesXArrayContainYElement(getKeysFromWeightedArray(strikingDistArray),adjArray[q])){
+        strikingDistArray.push(adjArray[q]);
+      }
+      //if water, use coastalDistance() to find nearby hexes that are land, unowned, and not in the WEA.
+      if(isRealObject(adjArray[q]) && !adjArray[q].isLand){
+        var coastalArray = coastalDistance(adjArray[q],2,regionArray);
+        for(var w=0; w<coastalArray.length;w++){
+          if(coastalArray[w].isLand && !doesXArrayContainYElement(getKeysFromWeightedArray(strikingDistArray),coastalArray[w])){
+            strikingDistArray.push(coastalArray[w]);
+          }
+        }
+      }
+    }
+  }
+  return strikingDistArray;
 }
 
 //END OF MODULE
