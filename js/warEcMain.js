@@ -103,7 +103,7 @@ class interest {
     }
   }
   createContract(region){
-    console.log(this.name + ' contract for ' + region);
+    contractArray.push(new contract(nation,region));
   }
   recindContract(){
 
