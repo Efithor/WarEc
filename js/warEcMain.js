@@ -96,25 +96,6 @@ class interest {
     //If a currently existing contract has
     //Create the contracts that can be afforded.
 
-    /**
-    //Determine if more contracts can be supported.
-    if(this.contractsOutstanding < totalContractsPotential(this)){
-      //Determine where this interest would like to expand.
-      var expansionOptions = regionsInStrikingDist(regionArray,this.id);
-      var expansionOptionsWeighted = giveExpansiosnWeights(expansionOptions);
-      this.createContract(this,selectElementRandomlyFromWeightedArray(expansionOptionsWeighted));
-    }
-    function giveExpansiosnWeights(expArr){
-      var weightedExpArr = [];
-      for(var i=0;i<expArr.length;i++){
-        weightedExpArr.push([expArr[i],expArr[i].wealth]);
-      }
-      return weightedExpArr;
-    }
-    function totalContractsPotential(interest){
-      return Math.floor(interest.treasury/10);
-    }
-    **/
   }
   createContract(inter,region){
     contractArray.push(new contract(inter,region));
