@@ -33,12 +33,15 @@ class PMC {
   constructor(name,id,startingWealth,startingStock,isPlayer){
     this.name = name;
     this.id = id;
-    this.startingWealth = startingWealth;
-    this.startingStock = startingStock;
+    this.wealth = startingWealth;
+    this.stock = startingStock;
     this.isPlayer= isPlayer;
     this.ownedRegiments = [];
+    this.ownedRegiments.push(new regiment(),new regiment(), new regiment());
+    console.log(this.ownedRegiments);
   }
   takeTurn(){
+    console.log(this.name + 'Takes their turn.');
     //Determine if new regiments can be recruited.
     this.manageRegiments();
     //If there's any contracts that the PMC can fufill, accept them.
@@ -46,7 +49,7 @@ class PMC {
     //Deploy regiments to fufill obligations.
     this.manageDeployments();
   }
-  manageRegiements(){
+  manageRegiments(){
     //If the PMC's income can suport more regiments, hire them. If it can't, remove them until it does.
   }
   manageContracts(){
@@ -119,6 +122,7 @@ class contract {
     this.contractor = 'none';
   }
 }
+
 //Keep track of mouse position.
 paperTool.onMouseMove = function(event){
   mousePos = event.point;
@@ -142,7 +146,7 @@ var gameManager = (function(){
     PMCTurns();
     battleChecks();
     influenceChecks();
-    updateBorders();
+    updateBorders(); //Might be redrawing the borders without removing old ones
     weathChecks();
     tabulatePMCIncome();
     tabulatePMCStockPrice();
@@ -159,7 +163,9 @@ var gameManager = (function(){
   }
 
   function PMCTurns(){
-
+    for(var i=0;i<PMCArray.length;i++){
+      PMCArray[i].takeTurn();
+    }
   }
   //Determine what happens for each regiment engaged in combat.
   function battleChecks(){
@@ -486,7 +492,6 @@ var worldGeneratorModule = (function(){
       }
     }
     interateOverRegionArray(rArray,func);
-    console.log(rArray);
   }
   //Choose a random land square and put a biomeType on it.
   //Either grab a random adjacent squre (80% chance?) and put a biomeType
